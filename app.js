@@ -1,4 +1,4 @@
-﻿/// <reference path="Scripts/jquery-2.1.0.js" />
+﻿/// <reference path="scripts/jquery-2.1.0.js" />
 
 
 // **********************
@@ -18,12 +18,12 @@ var stepCount = 0;
 // *  Helper functions  *
 // **********************
 
-function rand(n, m) {
-  return Math.floor(n + Math.random() * m);
+function between(n, m) {
+  return n + Math.floor(Math.random() * (m-n));
 }
 
-function rand(n) {
-  return Math.floor(Math.random() * n);
+function myrand(x) {
+  return between(0,x);
 }
 
 function arrayUnique(array) {
@@ -37,6 +37,15 @@ function arrayUnique(array) {
 
   return a;
 }
+
+function addUnique(array, newEntry) {
+  for (var i = 0; i < array.length; ++i) {
+    if (array[i] === newEntry)
+      return array
+  }
+  return array.concat([newEntry]);
+}
+
 
 function shuffle(array) {
   var currentIndex = array.length
@@ -64,12 +73,13 @@ function shuffle(array) {
 
 function getRandomIP(ips) {
   var arr = Array.apply(null, Array(N))
-        .map(function (x, i) { return i; });
-  return shuffle(arr.filter(function (e) { return !(e in ips) }))[0];
+        .map(function (x, i) { return i; })
+        .filter(function (e) { return !(e in ips) });
+  return arr[myrand(arr.length)];
 }
 
 function getNewPort() {
-  return rand(49152, 65535);
+  return between(49152, 65535);
 }
 
 function infect(x, ips, pl) {
@@ -107,10 +117,10 @@ function turn(x) {
     cPort[x] = newPort;
 
     var addr = x + ":" + newPort;
-    peer_list[x] = arrayUnique(peer_list[x].concat([addr]));
+    peer_list[x] = addUnique(peer_list[x], addr);
 
     for (var i = 0; i < 10; i++) {
-      var random_peer = peer_list[x][rand(peer_list[x].length)];
+      var random_peer = peer_list[x][myrand(peer_list[x].length)];
       notify(x, random_peer, knownInfectedIPs[x], peer_list[x]);
       
       var randomIP = getRandomIP(knownInfectedIPs[x]);
@@ -121,6 +131,57 @@ function turn(x) {
   }
 }
 
+
+
+// ***********************
+// * Controls and layout *
+// ***********************
+var infoShown = -1;
+
+function arrToOption(arr) {
+  var sarr = new Array();
+  for (var i = 0; i < arr.length; i++) {
+    sarr.push("<option>" + arr[i] + "</option>");
+  }
+  return sarr.join(" ");
+}
+
+function showInfo(x) {
+  infoShown = x;
+  if (x == -1) {
+    $("#sysinfo")
+      .html("<i>Click on a system to see information about it.</i><br>")
+      .append("<i>Hover over an infected system to see which it knows to be infected as well.</i>");
+
+  } else if (x in peer_list) {
+    var arr = new Array();
+    for (c in knownInfectedIPs[x]) {
+      arr.push(c);
+    }
+    $("#sysinfo")
+      .html("Current port: " + cPort[x] + "<br>")
+      .append("Known infected IPs: ")
+      .append($('<select>').append(arrToOption(arr)))
+      .append("size: " + arr.length)
+      .append("<br>")
+      .append("Peer list: ")
+      .append($('<select>').append(arrToOption(peer_list[x])))
+      .append("size: " + peer_list[x].length)
+    ;
+
+  } else {
+    $("#sysinfo").html("This system is not infected yet.");
+  }
+}
+
+function highlightKnown(el, color) {
+  var x = parseInt(el.attr('sysid'));
+  if (x in peer_list) {
+    for (c in knownInfectedIPs[x]) {
+      $("#systems li").eq(c).css('background', color);
+    }
+  }
+}
 
 function init(n) {
   // Setup variables
@@ -134,12 +195,29 @@ function init(n) {
   $("#systems").empty();
   for (var i = 0; i < n; i++) {
     $("#systems").append(
-      $('<li>').attr('class', 'uninfected')
+      $('<li>')
+        .attr('class', 'uninfected')
+        .attr('sysid', i)
+        .append(i)
     );
   }
-  
+
+  // Add onClick for each system
+  $("#systems li").click(function () {
+    var x = parseInt($(this).attr('sysid'));
+    showInfo(x);
+  });
+
+  $("#systems li").hover(
+    function () {
+      highlightKnown($(this), 'orange');
+    },
+    function () {
+      highlightKnown($(this), '');
+    }
+  );
   // Infect random system
-  infect(rand(N), {}, new Array());
+  infect(myrand(N), {}, new Array());
 }
 
 
@@ -149,22 +227,22 @@ $("#start").click(function () {
   if (isNaN(n)) {
     alert("'" + $("#amount").val() + "' is not a number.");
   } else if (n > 1000) {
-    alert("'" + n + "' is too great (>1000).");
+    alert(n + " is too great with the current settings (>1000).");
   } else {
     init(n);
     $("#step").removeAttr("disabled");
+    $("#autostep").removeAttr("disabled");
     $("#stepsTaken").html(0);
+    showInfo(-1);
   }
 
 });
 
 $("#step").attr("disabled", "disabled");
+$("#autostep").attr("disabled", "disabled");
 
 // Run BadBot in random order on infected systems.
-$("#step").click(function () {
-  if (N < 0) return;
-  $("#step").attr("disabled", "disabled");
-
+function step() {
   var arr =
       shuffle(
         Array.apply(null, Array(iList.length))
@@ -176,10 +254,65 @@ $("#step").click(function () {
   }
 
   $("#stepsTaken").html(++stepCount);
+  showInfo(infoShown);
 
   if (iList.length == N) {
+    endStepping();
     alert("All systems infected in " + stepCount + " steps!");
   }
+}
 
+
+// Auto stepping functionality
+var autostepping;
+
+function endStepping() {
+  $("#step").attr("disabled", "disabled");
+  $("#autostep").attr("disabled", "disabled");
+  $("#autostep").val("Auto Step");
+
+  if (autostepping !== undefined) {
+    clearInterval(autostepping);
+    autostepping = undefined;
+  }
+}
+
+function stopAutoStep() {
   $("#step").removeAttr("disabled");
+  $("#autostep").val("Auto Step");
+
+  clearInterval(autostepping);
+  autostepping = undefined;
+}
+
+function startAutoStep() {
+  $("#step").attr("disabled", "disabled");
+  $("#autostep").val("Pause");
+
+  var ms = parseInt($("#ms").val());
+  autostepping = setInterval(function () {
+    step();
+  }, ms);
+}
+
+$("#autostep").click(function () {
+  if (N < 0) return;
+
+  if (autostepping !== undefined) {
+    stopAutoStep();
+  } else {
+    startAutoStep();
+  }
+
+});
+
+$("#step").click(function () {
+  if (N < 0) return;
+  $("#step").attr("disabled", "disabled");
+
+  step();
+
+  if (iList.length < N) {
+    $("#step").removeAttr("disabled");
+  }
 });

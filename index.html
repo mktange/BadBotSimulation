@@ -7,18 +7,21 @@
 <body>
   
   <div class="controls">
-    n = <input type="text" size="2" value="100" id="amount"/>
+    n = <input type="text" size="2" value="300" id="amount"/>
     <input type="button" value="Start" id="start" /> <br />
 
     Steps taken: <span id="stepsTaken">-</span>
     <input type="button" value="Step" id="step" />
+    <input type="button" value="Auto Step" id="autostep" /> 
+    Delay: <input type="text" size="2" value="100" id="ms" /> ms
   </div>
 
   <div class="main">
+    <div id="sysinfo"></div>
     <ul id="systems"></ul>
   </div>
 
-  <script src="Scripts/jquery-2.1.0.js"></script>
+  <script src="scripts/jquery-2.1.0.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
