@@ -1,0 +1,37 @@
+﻿#systems {
+  list-style-type: none;
+  padding: 0;
+  text-align: center;
+  display: inline-block;
+}
+
+#systems li {
+  width: 10px;
+  height: 10px;
+  float: left;
+  padding: 2px;
+  margin: 2px;
+  border: 2px solid black;
+  font-weight: bold;
+}
+
+#systems li.infected {
+  background: red;
+}
+
+#systems li.uninfected {
+  background: lightgreen;
+}
+
+#stepsTaken {
+  padding: 5px;
+  font-size: 1.2em;
+}
+
+.controls {
+  width: 100%;
+  text-align: center;
+}
+
+body {
+}
